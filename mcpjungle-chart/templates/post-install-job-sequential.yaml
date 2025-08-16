@@ -184,7 +184,7 @@ spec:
               
               echo ""
               echo "🚀 All tasks completed successfully!"
-              sleep 2600
+              sleep 10
           volumeMounts:
             - name: mcp-servers-config
               mountPath: /etc/mcpjungle/mcp-servers
