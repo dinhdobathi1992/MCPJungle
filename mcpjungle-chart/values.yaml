@@ -69,8 +69,8 @@ postgresql:
 
 # Environment variables
 env:
-  SERVER_MODE: development
-  #DATABASE_URL: postgres://mcpjungle:mcpjungle@{{ .Release.Name }}-postgresql:5432/mcpjungle
+  SERVER_MODE: production
+  #DATABASE_URL: postgres://mcpjungle:mcpjungle@{{ .Release.Name }}-postgresql:5432/mcpjungle  # TODO: Uncomment this when we have a database
 
 # MCP Server configuration
 mcpServers:
@@ -79,3 +79,24 @@ mcpServers:
     transport: streamable_http
     description: "Terraform infrastructure management tools"
     url: "http://terraform-mcp-server.mcp.svc.cluster.local:8080/mcp"
+
+# MCP Client configuration (only used in production mode)
+mcpClients:
+  # Default client that gets created automatically in production mode
+  # with access to all registered MCP servers
+  defaultClient:
+    name: "default-client"
+    description: "Default MCP client with access to all servers"
+    allow: "terraform"
+    # Access will be automatically granted to all registered servers
+    
+  # Example of additional clients you can configure
+  # cursorClient:
+  #   name: "cursor-local"
+  #   description: "Cursor IDE client"
+  #   allowedServers: ["calculator", "terraform"]
+  
+  # claudeClient:
+  #   name: "claude-desktop"
+  #   description: "Claude Desktop client"
+  #   allowedServers: ["calculator"]

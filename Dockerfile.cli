@@ -1,0 +1,75 @@
+FROM alpine:latest
+
+# Install required packages and kubectl in one layer to avoid caching issues
+RUN apk add --no-cache curl tar jq file \
+    && echo "Installing kubectl..." \
+    && ARCH=$(uname -m) \
+    && echo "Detected architecture: $ARCH" \
+    && if [ "$ARCH" = "aarch64" ]; then ARCH="arm64"; fi \
+    && if [ "$ARCH" = "x86_64" ]; then ARCH="amd64"; fi \
+    && echo "Using kubectl architecture: $ARCH" \
+    && KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt) \
+    && echo "Latest kubectl version: $KUBECTL_VERSION" \
+    && KUBECTL_URL="https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${ARCH}/kubectl" \
+    && echo "Download URL: $KUBECTL_URL" \
+    && curl -L -o /tmp/kubectl "$KUBECTL_URL" \
+    && echo "Downloaded kubectl, checking file:" \
+    && ls -la /tmp/kubectl \
+    && file /tmp/kubectl \
+    && chmod +x /tmp/kubectl \
+    && /tmp/kubectl version --client \
+    && mv /tmp/kubectl /usr/local/bin/kubectl \
+    && echo "kubectl installed successfully at /usr/local/bin/kubectl" \
+    && /usr/local/bin/kubectl version --client \
+    && which kubectl \
+    && echo "kubectl installation completed"
+
+# Set working directory
+WORKDIR /tmp
+
+# Download MCPJungle binary based on architecture
+RUN echo "Downloading MCPJungle binary..." \
+    && echo "Architecture: $(uname -m)" \
+    && if [ "$(uname -m)" = "aarch64" ] || [ "$(uname -m)" = "arm64" ]; then \
+        echo "Detected ARM64 architecture, downloading ARM64 package..." \
+        && curl -L -o mcpjungle.tar.gz https://github.com/mcpjungle/MCPJungle/releases/download/0.2.1/MCPJungle_Linux_arm64.tar.gz; \
+    else \
+        echo "Detected x86_64 architecture, downloading x86_64 package..." \
+        && curl -L -o mcpjungle.tar.gz https://github.com/mcpjungle/MCPJungle/releases/download/0.2.1/MCPJungle_Linux_x86_64.tar.gz; \
+    fi
+
+# Extract and install the binary
+RUN echo "Extracting MCPJungle binary..." \
+    && tar -xzf mcpjungle.tar.gz \
+    && if [ -f mcpjungle ]; then \
+        echo "Found binary at mcpjungle"; \
+    elif [ -f MCPJungle ]; then \
+        mv MCPJungle mcpjungle \
+        && echo "Found binary at MCPJungle, moved to mcpjungle"; \
+    else \
+        echo "ERROR: Could not find MCPJungle binary after extraction" \
+        && ls -la \
+        && exit 1; \
+    fi \
+    && chmod +x mcpjungle \
+    && mv mcpjungle /usr/local/bin/ \
+    && rm -f mcpjungle.tar.gz
+
+# Test both binaries are working
+RUN echo "Final verification of both binaries..." \
+    && echo "Testing mcpjungle:" \
+    && mcpjungle version \
+    && echo "Testing kubectl:" \
+    && kubectl version --client \
+    && echo "Both binaries are working correctly" \
+    && ls -la /usr/local/bin/
+
+# Create a simple entrypoint script
+RUN echo '#!/bin/sh' > /entrypoint.sh \
+    && echo 'echo "MCPJungle CLI ready to use"' >> /entrypoint.sh \
+    && echo 'echo "Available commands: mcpjungle --help, kubectl --help"' >> /entrypoint.sh \
+    && echo 'exec "$@"' >> /entrypoint.sh \
+    && chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["sh"]

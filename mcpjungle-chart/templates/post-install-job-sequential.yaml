@@ -1,0 +1,199 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "mcpjungle.fullname" . }}-register-mcp-servers
+  labels:
+    {{- include "mcpjungle.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": hook-succeeded
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        {{- include "mcpjungle.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: register-mcp-servers
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: {{ include "mcpjungle.serviceAccountName" . }}
+      
+      # Init Container: Wait for server and initialize if needed
+      initContainers:
+        - name: init-mcpjungle
+          image: "dinhdobathi/mcpjungle-cli:latest"
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              echo "=== MCPJungle Initialization ==="
+              mcpurl={{ include "mcpjungle.fullname" . }}.default.svc.cluster.local:{{ .Values.service.port }}
+              
+              # Wait for server to be ready
+              echo "🔌 Waiting for MCPJungle server to be ready..."
+              until curl -s http://$mcpurl/health > /dev/null 2>&1; do
+                echo "MCPJungle server not ready yet, waiting..."
+                sleep 5
+              done
+              echo "✅ MCPJungle server is ready"
+              
+              # Initialize server if in production mode
+              {{- if eq .Values.env.SERVER_MODE "production" }}
+              echo "🔧 Production mode detected. Checking for existing admin config..."
+              
+              # Check if admin token already exists in Kubernetes Secret
+              if kubectl get secret {{ include "mcpjungle.fullname" . }}-admin-token >/dev/null 2>&1; then
+                echo "✅ Admin token already exists in Kubernetes Secret"
+                echo "📋 Retrieving existing admin config..."
+                kubectl get secret {{ include "mcpjungle.fullname" . }}-admin-token -o jsonpath='{.data.mcpjungle\.conf}' | base64 -d > ~/.mcpjungle.conf
+                echo "✅ Admin config restored from Kubernetes Secret"
+              else
+                echo "🔧 No existing admin token found. Initializing server..."
+                if mcpjungle init-server --registry http://$mcpurl; then
+                  echo "✅ Server initialization completed"
+                  
+                  # Store the admin token in Kubernetes Secret for persistence
+                  if [ -f /root/.mcpjungle.conf ]; then
+                    echo "📋 Storing admin config in Kubernetes Secret..."
+                    kubectl create secret generic {{ include "mcpjungle.fullname" . }}-admin-token \
+                      --from-file=mcpjungle.conf=/root/.mcpjungle.conf \
+                      --dry-run=client -o yaml | kubectl apply -f -
+                    echo "✅ Admin config stored in Kubernetes Secret"
+                  else
+                    echo "❌ No admin config found at /root/.mcpjungle.conf"
+                    exit 1
+                  fi
+                else
+                  echo "⚠️ Server initialization failed"
+                  exit 1
+                fi
+              fi
+              
+              # Copy config to shared volume for main container
+              cp ~/.mcpjungle.conf /shared/mcpjungle.conf
+              
+              # Wait for initialization to settle
+              echo "Waiting for initialization to complete..."
+              sleep 10
+              {{- else }}
+              echo "🔧 Development mode - no initialization needed"
+              {{- end }}
+              
+              echo "=== Initialization Complete ==="
+          volumeMounts:
+            - name: shared-data
+              mountPath: /shared
+
+      # Main Container: Register servers, then create clients sequentially
+      containers:
+        - name: register-and-create
+          image: "dinhdobathi/mcpjungle-cli:latest"
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              echo "=== Step 1: MCP Server Registration ==="
+              mcpurl={{ include "mcpjungle.fullname" . }}.default.svc.cluster.local:{{ .Values.service.port }}
+              
+              {{- if eq .Values.env.SERVER_MODE "production" }}
+              # Restore admin config from shared volume
+              if [ -f /shared/mcpjungle.conf ]; then
+                echo "🔑 Restoring admin config..."
+                cp /shared/mcpjungle.conf ~/.mcpjungle.conf
+                echo "✅ Admin config restored"
+                
+                # Verify admin access
+                echo "🔍 Testing admin access..."
+                if mcpjungle list servers --registry http://$mcpurl > /dev/null 2>&1; then
+                  echo "✅ Admin access verified"
+                else
+                  echo "❌ Admin access verification failed"
+                  exit 1
+                fi
+              else
+                echo "❌ No admin config found in shared volume"
+                exit 1
+              fi
+              {{- end }}
+              
+              cd /etc/mcpjungle/mcp-servers
+              
+              # Check if any servers to register
+              if ! ls *.json >/dev/null 2>&1; then
+                echo "No MCP server configurations found"
+              else
+                # Register each MCP server
+                for file in *.json; do
+                  echo "📝 Registering MCP server from $file..."
+                  if mcpjungle register -c "$file" --registry http://$mcpurl; then
+                    echo "✅ Successfully registered $(basename "$file" .json)"
+                  else
+                    echo "❌ Failed to register $(basename "$file" .json)"
+                    exit 1
+                  fi
+                done
+                
+                # Verify registration
+                echo "📋 Verifying registered servers..."
+                mcpjungle list servers --registry http://$mcpurl
+                
+                echo "🎉 All MCP servers registered successfully!"
+              fi
+              
+              {{- if eq .Values.env.SERVER_MODE "production" }}
+              echo ""
+              echo "=== Step 2: MCP Client Creation ==="
+              
+              # Get list of registered servers
+              echo "📋 Getting list of registered MCP servers..."
+              echo "Debug: Raw server list output:"
+              mcpjungle list servers --registry http://$mcpurl
+              echo "---"
+              
+              # Parse server names from the formatted output
+              # The output format is: "1. server-name" followed by description lines
+              # We need to extract just the server names from lines starting with numbers
+              servers_list=$(mcpjungle list servers --registry http://$mcpurl 2>/dev/null | grep -E "^[0-9]+\. " | sed 's/^[0-9]*\. //' | paste -sd, - | sed 's/[[:space:]]*$//')
+              echo "Parsed servers: '$servers_list'"
+              if [ -z "$servers_list" ]; then
+                echo "⚠️ No MCP servers found. Skipping client creation."
+              else
+                echo "🎯 Found servers: $servers_list"
+                
+                # Create default MCP client
+                echo "👤 Creating default MCP client with access to all servers..."
+                client_output=$(mcpjungle create mcp-client default-client --allow "$servers_list" --registry http://$mcpurl)
+                
+                # Extract and store the access token
+                echo "$client_output"
+                # The output format is: "... Access token: <TOKEN> Your client should..."
+                # We need to extract the token after "Access token:"
+                access_token=$(echo "$client_output" | grep "Access token:" | sed 's/.*Access token: //' | awk '{print $1}')
+                
+                if [ -n "$access_token" ]; then
+                  echo "💾 Storing client access token..."
+                  echo "$access_token" > /shared/client-access-token.txt
+                  echo "✅ Client access token stored in /shared/client-access-token.txt"
+                  echo "🔑 Use this token with: Authorization: Bearer $access_token"
+                  echo "🎉 MCP client creation completed!"
+                else
+                  echo "❌ Failed to extract access token"
+                  exit 1
+                fi
+              fi
+              {{- end }}
+              
+              echo ""
+              echo "🚀 All tasks completed successfully!"
+              sleep 2600
+          volumeMounts:
+            - name: mcp-servers-config
+              mountPath: /etc/mcpjungle/mcp-servers
+            - name: shared-data
+              mountPath: /shared
+
+      volumes:
+        - name: mcp-servers-config
+          configMap:
+            name: {{ include "mcpjungle.fullname" . }}-mcp-servers
+        - name: shared-data
+          emptyDir: {}
