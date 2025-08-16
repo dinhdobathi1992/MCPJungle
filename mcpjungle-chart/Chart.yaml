@@ -1,0 +1,14 @@
+apiVersion: v2
+name: mcpjungle
+description: A Helm chart for MCPJungle - Self-hosted MCP Gateway for private AI agents
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - mcpjungle
+  - mcp
+  - ai
+  - gateway
+home: https://github.com/mcpjungle/MCPJungle
+maintainers:
+  - name: MCPJungle Team

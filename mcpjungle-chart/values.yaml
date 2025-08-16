@@ -1,0 +1,81 @@
+# Default values for mcpjungle chart
+replicaCount: 1
+
+image:
+  repository: mcpjungle/mcpjungle
+  tag: latest
+  pullPolicy: IfNotPresent
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+
+securityContext: {}
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: true
+  className: "alb"
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/ssl-redirect: "false"
+  hosts:
+    - host: mcpjungle.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Database configuration
+postgresql:
+  enabled: false
+  auth:
+    username: mcpjungle
+    password: mcpjungle
+    database: mcpjungle
+  service:
+    port: 5432
+
+# Environment variables
+env:
+  SERVER_MODE: development
+  #DATABASE_URL: postgres://mcpjungle:mcpjungle@{{ .Release.Name }}-postgresql:5432/mcpjungle
+
+# MCP Server configuration
+mcpServers:
+  terraform:
+    name: terraform-mcp-server
+    transport: streamable_http
+    description: "Terraform infrastructure management tools"
+    url: "http://terraform-mcp-server.mcp.svc.cluster.local:8080/mcp"
