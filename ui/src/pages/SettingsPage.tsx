@@ -642,7 +642,7 @@ export function SettingsPage() {
                 token={createdClient.access_token}
                 gatewayHost={gatewayHost}
                 userToken={token ?? ""}
-                canApplyLocally={settings.can_apply_local_config && isAdminEquivalent}
+                canApplyLocally={settings.can_apply_local_config}
               />
             ) : (
               <div>
