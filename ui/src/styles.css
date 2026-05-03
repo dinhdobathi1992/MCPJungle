@@ -40,3 +40,21 @@ body {
 .numeric {
   font-family: "IBM Plex Sans", "JetBrains Mono", monospace;
 }
+
+.brand-version-chip {
+  border: 1px solid rgba(238, 255, 215, 0.26);
+  background-color: #11513a;
+  background-image:
+    radial-gradient(150% 120% at 10% 0%, rgba(164, 223, 152, 0.9) 0 34%, transparent 35%),
+    radial-gradient(160% 110% at 12% 58%, rgba(96, 186, 108, 0.82) 0 28%, transparent 29%),
+    linear-gradient(180deg, transparent 0 44%, rgba(36, 103, 73, 0.82) 44% 67%, transparent 67%),
+    linear-gradient(92deg, transparent 43%, rgba(244, 255, 215, 0.95) 48%, rgba(219, 243, 135, 0.96) 51%, rgba(150, 220, 99, 0.92) 55%, transparent 61%),
+    linear-gradient(135deg, #236e49 0%, #11513a 52%, #072c24 100%);
+  background-repeat: no-repeat;
+  box-shadow:
+    0 0 0 1px rgba(17, 81, 58, 0.18),
+    0 10px 20px rgba(7, 44, 36, 0.28),
+    inset 0 1px 0 rgba(238, 255, 215, 0.16);
+  color: #f4ffd7;
+  text-shadow: 0 1px 0 rgba(7, 44, 36, 0.55);
+}
