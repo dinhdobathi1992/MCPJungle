@@ -116,6 +116,20 @@ When the server starts it resolves the database connection in this order:
   ```
 </ParamField>
 
+<ParamField path="MCPJUNGLE_ENABLE_LOCAL_APPLY_CONFIG" type="boolean" default="false">
+  Enables server-side writes for the dashboard's **Apply Config** action. Accepted values are `true`, `1`, `false`, and `0` (case-insensitive).
+
+  ```bash
+  export MCPJUNGLE_ENABLE_LOCAL_APPLY_CONFIG=true
+  ```
+
+  This is intended only for same-machine local installs where browser and gateway run on the same host. Even when enabled, MCPJungle only allows the endpoint over loopback (`localhost`, `127.0.0.1`, or `::1`) from the same machine.
+
+  <Warning>
+    Do not enable this on EKS, Kubernetes, shared servers, or any remote deployment. Hosted gateways cannot safely write IDE config files onto user laptops. In those environments, use the Settings page to download or copy config snippets and paste them locally.
+  </Warning>
+</ParamField>
+
 ---
 
 ## Observability
@@ -200,6 +214,7 @@ When the server starts it resolves the database connection in this order:
 | `PORT` | Server | `8080` | HTTP listen port. |
 | `SERVER_MODE` | Server | `development` | Server mode: `development` or `enterprise`. |
 | `MCP_SERVER_INIT_REQ_TIMEOUT_SEC` | Server | `30` | Seconds to wait for MCP server initialization. |
+| `MCPJUNGLE_ENABLE_LOCAL_APPLY_CONFIG` | Server | `false` | Enable local-only Apply Config writes over loopback. |
 | `OTEL_ENABLED` | Observability | mode-dependent | Enable OpenTelemetry metrics. |
 | `OTEL_RESOURCE_ATTRIBUTES` | Observability | — | Additional OTel resource attributes. |
 | `SESSION_IDLE_TIMEOUT_SEC` | Connections | `-1` | Idle timeout for stateful sessions. |

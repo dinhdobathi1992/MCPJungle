@@ -26,6 +26,7 @@ function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <button
+      type="button"
       className="rounded border border-line px-2 py-0.5 font-mono text-[11px] text-muted transition hover:border-accent/50 hover:text-accent"
       onClick={() => {
         void navigator.clipboard.writeText(text);
@@ -45,7 +46,248 @@ const IDE_TARGETS = [
   { id: "copilot",  label: "Copilot" },
   { id: "opencode", label: "OpenCode" },
   { id: "zed",      label: "Zed" },
-];
+ ] as const;
+
+type IDETargetId = (typeof IDE_TARGETS)[number]["id"];
+
+type ConfigArtifact = {
+  id: IDETargetId;
+  label: string;
+  fileName: string;
+  pathHint: string;
+  mergeHint: string;
+  content: string;
+};
+
+function buildRemoteArgs(mcpUrl: string, token: string): string[] {
+  const args = ["mcp-remote", mcpUrl];
+  if (mcpUrl.startsWith("http://")) {
+    args.push("--allow-http");
+  }
+  args.push("--header", `Authorization: Bearer ${token}`);
+  return args;
+}
+
+function downloadTextFile(fileName: string, content: string) {
+  const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+function buildConfigArtifact(id: IDETargetId, gatewayHost: string, token: string): ConfigArtifact {
+  const mcpUrl = `${gatewayHost}/mcp`;
+  const remoteArgs = buildRemoteArgs(mcpUrl, token);
+
+  switch (id) {
+    case "claude":
+      return {
+        id,
+        label: "Claude",
+        fileName: "mcpjungle-claude-mcp.json",
+        pathHint: "~/.claude/mcp.json",
+        mergeHint: "Merge under mcpServers.",
+        content: JSON.stringify(
+          {
+            mcpServers: {
+              mcpjungle: {
+                command: "npx",
+                args: remoteArgs,
+              },
+            },
+          },
+          null,
+          2,
+        ),
+      };
+    case "cursor":
+      return {
+        id,
+        label: "Cursor",
+        fileName: "mcpjungle-cursor-mcp.json",
+        pathHint: "~/.cursor/mcp.json",
+        mergeHint: "Merge under mcpServers.",
+        content: JSON.stringify(
+          {
+            mcpServers: {
+              mcpjungle: {
+                url: mcpUrl,
+                headers: { Authorization: `Bearer ${token}` },
+              },
+            },
+          },
+          null,
+          2,
+        ),
+      };
+    case "codex":
+      return {
+        id,
+        label: "Codex",
+        fileName: "mcpjungle-codex-config.toml",
+        pathHint: "~/.codex/config.toml",
+        mergeHint: "Append this block to existing file.",
+        content:
+          `[mcp_servers.mcpjungle]\n` +
+          `command = "npx"\n` +
+          `args = ${JSON.stringify(remoteArgs)}\n`,
+      };
+    case "copilot":
+      return {
+        id,
+        label: "Copilot",
+        fileName: "mcpjungle-copilot-mcp.json",
+        pathHint: "VS Code mcp.json",
+        mergeHint: "Merge under servers.",
+        content: JSON.stringify(
+          {
+            servers: {
+              mcpjungle: {
+                url: mcpUrl,
+                headers: { Authorization: `Bearer ${token}` },
+              },
+            },
+          },
+          null,
+          2,
+        ),
+      };
+    case "opencode":
+      return {
+        id,
+        label: "OpenCode",
+        fileName: "mcpjungle-opencode.json",
+        pathHint: "~/.config/opencode/opencode.json",
+        mergeHint: "Merge under mcp.",
+        content: JSON.stringify(
+          {
+            mcp: {
+              mcpjungle: {
+                type: "remote",
+                url: mcpUrl,
+                enabled: true,
+                headers: { Authorization: `Bearer ${token}` },
+              },
+            },
+          },
+          null,
+          2,
+        ),
+      };
+    case "zed":
+      return {
+        id,
+        label: "Zed",
+        fileName: "mcpjungle-zed-settings.json",
+        pathHint: "~/.config/zed/settings.json",
+        mergeHint: "Merge under context_servers.",
+        content: JSON.stringify(
+          {
+            context_servers: {
+              mcpjungle: {
+                command: {
+                  path: "npx",
+                  args: remoteArgs,
+                },
+                settings: {},
+              },
+            },
+          },
+          null,
+          2,
+        ),
+      };
+  }
+}
+
+function DownloadConfigSection({
+  mcpToken,
+  gatewayHost,
+}: {
+  mcpToken: string;
+  gatewayHost: string;
+}) {
+  const [selected, setSelected] = useState<IDETargetId[]>(["claude", "cursor"]);
+  const artifacts = selected.map((id) => buildConfigArtifact(id, gatewayHost, mcpToken));
+
+  function toggle(id: IDETargetId) {
+    setSelected((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  }
+
+  return (
+    <div className="rounded-ui border border-line bg-shell p-4">
+      <p className="text-sm font-medium text-body">Download local config snippets</p>
+      <p className="mt-1 text-xs text-muted">
+        Hosted gateways cannot edit files on your laptop. Download a snippet, merge it locally, then restart your IDE if needed.
+      </p>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        {IDE_TARGETS.map((target) => (
+          <button
+            key={target.id}
+            type="button"
+            onClick={() => toggle(target.id)}
+            className={`rounded-md border px-3 py-1.5 text-xs font-medium transition ${
+              selected.includes(target.id)
+                ? "border-accent bg-accent/10 text-accent"
+                : "border-line bg-elevated text-muted hover:border-accent/40 hover:text-body"
+            }`}
+          >
+            {target.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="button"
+          className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-ink disabled:opacity-40"
+          disabled={artifacts.length === 0}
+          onClick={() => artifacts.forEach((artifact) => downloadTextFile(artifact.fileName, artifact.content))}
+        >
+          Download selected
+        </button>
+        <span className="self-center text-xs text-muted">
+          Files are snippets. Merge into target config paths shown below.
+        </span>
+      </div>
+
+      <div className="mt-4 space-y-3">
+        {artifacts.map((artifact) => (
+          <div key={artifact.id} className="rounded-md border border-line bg-elevated/40 p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-body">{artifact.label}</p>
+                <p className="mt-1 font-mono text-[11px] text-muted">{artifact.pathHint}</p>
+                <p className="mt-1 text-xs text-muted">{artifact.mergeHint}</p>
+              </div>
+              <div className="flex gap-2">
+                <CopyButton text={artifact.content} />
+                <button
+                  type="button"
+                  className="rounded border border-line px-2 py-0.5 font-mono text-[11px] text-muted transition hover:border-accent/50 hover:text-accent"
+                  onClick={() => downloadTextFile(artifact.fileName, artifact.content)}
+                >
+                  download
+                </button>
+              </div>
+            </div>
+            <pre className="mt-3 overflow-x-auto rounded bg-shell p-3 font-mono text-xs text-body">
+              {artifact.content}
+            </pre>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function ApplyConfigSection({
   mcpToken,
@@ -74,9 +316,9 @@ function ApplyConfigSection({
 
   return (
     <div className="rounded-ui border border-line bg-shell p-4">
-      <p className="text-sm font-medium text-body">Apply config to local IDEs</p>
+      <p className="text-sm font-medium text-body">Apply config on this machine</p>
       <p className="mt-1 text-xs text-muted">
-        Writes this token directly into the config files on this machine.
+        Only available when gateway runs on this same machine and local apply is explicitly enabled.
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
         {IDE_TARGETS.map((t) => (
@@ -117,15 +359,17 @@ function ConnectSection({
   token,
   gatewayHost,
   userToken,
+  canApplyLocally,
 }: {
   token: string;
   gatewayHost: string;
   userToken: string;
+  canApplyLocally: boolean;
 }) {
   const mcpUrl = `${gatewayHost}/mcp`;
   const curlSnippet = `curl -s -H "Authorization: Bearer ${token}" ${mcpUrl}`;
   const claudeArgs = JSON.stringify(
-    ["mcp-remote", mcpUrl, "--allow-http", "--header", `Authorization: Bearer ${token}`],
+    buildRemoteArgs(mcpUrl, token),
     null,
     2,
   );
@@ -212,8 +456,15 @@ function ConnectSection({
         </div>
       </details>
 
-      {/* Apply config */}
-      <ApplyConfigSection mcpToken={token} userToken={userToken} gatewayHost={gatewayHost} />
+      <DownloadConfigSection mcpToken={token} gatewayHost={gatewayHost} />
+
+      {canApplyLocally ? (
+        <ApplyConfigSection mcpToken={token} userToken={userToken} gatewayHost={gatewayHost} />
+      ) : (
+        <p className="rounded-ui border border-line bg-shell px-4 py-3 text-xs text-muted">
+          Local apply is disabled for this session. Hosted or remote gateways can only provide snippets for local paste/download.
+        </p>
+      )}
     </div>
   );
 }
@@ -275,7 +526,7 @@ function MyClientsSection({ token: userToken }: { token: string }) {
 }
 
 export function SettingsPage() {
-  const { settings, metadata, token, clearToken, user } = useAppContext();
+  const { settings, metadata, token, clearToken, user, isAdminEquivalent } = useAppContext();
   const isEnterprise = settings.mode !== "development";
 
   // Personal MCP client token state
@@ -387,7 +638,12 @@ export function SettingsPage() {
           </div>
           <div className="px-5 py-5">
             {createdClient ? (
-              <ConnectSection token={createdClient.access_token} gatewayHost={gatewayHost} userToken={token ?? ""} />
+              <ConnectSection
+                token={createdClient.access_token}
+                gatewayHost={gatewayHost}
+                userToken={token ?? ""}
+                canApplyLocally={settings.can_apply_local_config && isAdminEquivalent}
+              />
             ) : (
               <div>
                 <p className="text-sm text-muted">

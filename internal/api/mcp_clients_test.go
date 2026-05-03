@@ -82,3 +82,48 @@ func TestUpdateMcpClientHandler_UpdatesFieldsAndRotatesToken(t *testing.T) {
 	testhelpers.AssertNoError(t, err)
 	testhelpers.AssertEqual(t, "*", allowList[0])
 }
+
+func TestApplySelfClientConfigHandler_DisabledByDefault(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	s := &Server{}
+	router := gin.New()
+	router.POST("/clients/self/apply-config", s.applySelfClientConfigHandler())
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/clients/self/apply-config",
+		strings.NewReader(`{"token":"test-token","targets":["claude"]}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	testhelpers.AssertEqual(t, http.StatusForbidden, w.Code)
+	testhelpers.AssertStringContains(t, w.Body.String(), "local apply-config is disabled")
+}
+
+func TestApplySelfClientConfigHandler_RejectsNonLoopbackRequests(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	t.Setenv(enableLocalApplyConfigEnvVar, "true")
+
+	s := &Server{}
+	router := gin.New()
+	router.POST("/clients/self/apply-config", s.applySelfClientConfigHandler())
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"http://example.com/clients/self/apply-config",
+		strings.NewReader(`{"token":"test-token","targets":["claude"]}`),
+	)
+	req.Host = "example.com"
+	req.RemoteAddr = "198.51.100.20:54321"
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	testhelpers.AssertEqual(t, http.StatusForbidden, w.Code)
+	testhelpers.AssertStringContains(t, w.Body.String(), "only allowed over localhost")
+}

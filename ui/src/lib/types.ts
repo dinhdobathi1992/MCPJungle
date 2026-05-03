@@ -12,6 +12,7 @@ export type SettingsResponse = {
   initialized: boolean;
   mode: ServerMode;
   version: string;
+  can_apply_local_config: boolean;
 };
 
 export type CurrentUser = {

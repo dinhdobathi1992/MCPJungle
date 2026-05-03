@@ -34,4 +34,33 @@ func TestGetSettingsHandler(t *testing.T) {
 	testhelpers.AssertStringContains(t, w.Body.String(), `"initialized":true`)
 	testhelpers.AssertStringContains(t, w.Body.String(), `"mode":"development"`)
 	testhelpers.AssertStringContains(t, w.Body.String(), `"version":`)
+	testhelpers.AssertStringContains(t, w.Body.String(), `"can_apply_local_config":false`)
+}
+
+func TestGetSettingsHandler_LocalApplyEnabledOnLoopback(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	setup := testhelpers.SetupTestDB(t)
+	defer setup.Cleanup()
+
+	t.Setenv(enableLocalApplyConfigEnvVar, "true")
+
+	err := setup.DB.Create(&model.ServerConfig{
+		Mode:        model.ModeEnterprise,
+		Initialized: true,
+	}).Error
+	testhelpers.AssertNoError(t, err)
+
+	s := &Server{configService: config.NewServerConfigService(setup.DB)}
+	router := gin.New()
+	router.GET("/settings", s.getSettingsHandler())
+
+	req := httptest.NewRequest(http.MethodGet, "http://localhost:8080/settings", nil)
+	req.Host = "localhost:8080"
+	req.RemoteAddr = "127.0.0.1:43210"
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	testhelpers.AssertEqual(t, http.StatusOK, w.Code)
+	testhelpers.AssertStringContains(t, w.Body.String(), `"can_apply_local_config":true`)
 }
