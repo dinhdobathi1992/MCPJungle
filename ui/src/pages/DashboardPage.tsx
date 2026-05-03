@@ -31,18 +31,20 @@ export function DashboardPage() {
         <StatCard
           label="Mode"
           value={settings.mode}
-          tone="accent"
+          tone={settings.mode === "development" ? "accent" : "jungle"}
           detail={user ? `Logged in as ${user.username}` : "No auth required"}
         />
         <StatCard
           label="Servers"
           value={serversQuery.isLoading ? "…" : servers.length}
+          tone="jungle"
           detail={servers.length > 0 ? `${servers.length} upstream endpoint${servers.length !== 1 ? "s" : ""}` : "None registered"}
           linkTo="/servers"
         />
         <StatCard
           label="Tools"
           value={toolsQuery.isLoading ? "…" : tools.length}
+          tone="jungle"
           detail={tools.length > 0 ? `Across ${servers.length} server${servers.length !== 1 ? "s" : ""}` : "Register a server to populate"}
           linkTo="/tools"
         />

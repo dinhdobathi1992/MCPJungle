@@ -67,39 +67,99 @@ export function NavSidebar() {
   const { isAdminEquivalent, settings, user } = useAppContext();
 
   return (
-    <aside className="flex h-full flex-col rounded-panel border border-line bg-[#0f1319] p-4">
-      <div className="px-2 py-3">
-        <div className="flex items-center gap-2.5">
-          <img src="/ui/logo.svg" alt="MCPJungle" className="h-8 w-8 shrink-0" />
-          <div>
-            <p className="text-sm font-semibold leading-none text-body">MCPJungle</p>
-            <p className="mt-1 text-[11px] text-muted">
-              {settings.mode === "development" ? "dev mode" : user?.username ?? "gateway"}
-            </p>
+    // Gradient border wrapper — h-full so sidebar fills panel height
+    <div
+      className="h-full rounded-panel p-px"
+      style={{
+        background: "linear-gradient(160deg, rgba(252,213,53,0.25) 0%, rgba(252,213,53,0.04) 30%, rgba(43,49,57,0.6) 100%)",
+      }}
+    >
+      <aside
+        className="flex min-h-full flex-col rounded-[11px] p-3"
+        style={{
+          background: "linear-gradient(180deg, #111620 0%, #0b0e11 60%, #090c10 100%)",
+        }}
+      >
+        {/* Logo */}
+        <div className="px-2 py-3.5">
+          <div className="flex items-center gap-3">
+            <div
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
+              style={{
+                background: "linear-gradient(135deg, rgba(17,81,58,0.6) 0%, rgba(35,110,73,0.3) 100%)",
+                boxShadow: "0 0 0 1px rgba(14,203,129,0.25), 0 4px 16px rgba(14,203,129,0.12)",
+              }}
+            >
+              <img src="/ui/logo2.svg" alt="MCPJungle" className="h-8 w-8" />
+            </div>
+            <div>
+              <p className="text-[13px] font-semibold leading-none tracking-tight text-body">MCPJungle</p>
+              <p className="mt-1.5 text-[11px] leading-none text-muted/60">
+                {settings.mode === "development" ? "dev mode" : (user?.username ?? "gateway")}
+              </p>
+            </div>
           </div>
         </div>
-      </div>
 
-      <nav className="mt-4 flex flex-col gap-0.5">
-        {baseItems.map((item) => (
-          <SidebarLink key={item.to} {...item} />
-        ))}
+        {/* Divider */}
+        <div
+          className="mx-2 my-1 h-px"
+          style={{ background: "linear-gradient(90deg, rgba(252,213,53,0.15) 0%, rgba(43,49,57,0.4) 60%, transparent 100%)" }}
+        />
 
-        {isAdminEquivalent ? (
-          <>
-            <div className="px-2 pb-1.5 pt-5 text-[10px] font-medium uppercase tracking-[0.2em] text-muted/60">Admin</div>
-            {adminItems.map((item) => (
-              <SidebarLink key={item.to} {...item} />
-            ))}
-          </>
-        ) : null}
+        <nav className="mt-2 flex flex-1 flex-col gap-px overflow-y-auto">
+          {baseItems.map((item) => (
+            <SidebarLink key={item.to} {...item} />
+          ))}
 
-        <div className="px-2 pb-1.5 pt-5 text-[10px] font-medium uppercase tracking-[0.2em] text-muted/60">System</div>
-        {systemItems.map((item) => (
-          <SidebarLink key={item.to} {...item} />
-        ))}
-      </nav>
-    </aside>
+          {isAdminEquivalent ? (
+            <>
+              <SectionLabel>Admin</SectionLabel>
+              {adminItems.map((item) => (
+                <SidebarLink key={item.to} {...item} />
+              ))}
+            </>
+          ) : null}
+
+          <SectionLabel>System</SectionLabel>
+          {systemItems.map((item) => (
+            <SidebarLink key={item.to} {...item} />
+          ))}
+        </nav>
+
+        {/* Bottom user chip */}
+        {user && settings.mode !== "development" && (
+          <div className="mt-3">
+            <div
+              className="mx-1 h-px mb-3"
+              style={{ background: "linear-gradient(90deg, transparent, rgba(43,49,57,0.6), transparent)" }}
+            />
+            <div className="flex items-center gap-2.5 rounded-lg px-2.5 py-2">
+              <div
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-ink"
+                style={{ background: "linear-gradient(135deg, #fcd535, #f0b90b)" }}
+              >
+                {user.username.charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-[12px] font-medium text-body/80">{user.username}</p>
+                {user.role === "admin" && (
+                  <p className="text-[10px] text-muted/50">admin</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </aside>
+    </div>
+  );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="px-2.5 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-[0.15em] text-muted/40">
+      {children}
+    </div>
   );
 }
 
@@ -110,15 +170,38 @@ function SidebarLink({ to, label, icon }: NavItem) {
       end={to === "/"}
       className={({ isActive }) =>
         clsx(
-          "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors",
+          "group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition-all duration-150",
           isActive
-            ? "bg-accent text-ink"
-            : "text-muted hover:bg-panel hover:text-body",
+            ? "text-accent"
+            : "text-muted hover:text-body",
         )
       }
+      style={({ isActive }) =>
+        isActive
+          ? {
+              background: "linear-gradient(90deg, rgba(252,213,53,0.12) 0%, rgba(252,213,53,0.03) 100%)",
+              boxShadow: "inset 0 0 0 1px rgba(252,213,53,0.08)",
+            }
+          : {}
+      }
     >
-      {icon}
-      <span>{label}</span>
+      {({ isActive }) => (
+        <>
+          {isActive && (
+            <span
+              className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full"
+              style={{ background: "linear-gradient(180deg, #fcd535, #f0b90b)", boxShadow: "0 0 6px rgba(252,213,53,0.6)" }}
+            />
+          )}
+          <span
+            className={clsx("transition-colors duration-150", isActive ? "text-accent" : "text-muted/60 group-hover:text-body/70")}
+            style={isActive ? { filter: "drop-shadow(0 0 4px rgba(252,213,53,0.4))" } : {}}
+          >
+            {icon}
+          </span>
+          <span>{label}</span>
+        </>
+      )}
     </NavLink>
   );
 }

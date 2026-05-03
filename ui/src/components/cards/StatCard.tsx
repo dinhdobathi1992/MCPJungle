@@ -3,14 +3,18 @@ import { Link } from "react-router-dom";
 type StatCardProps = {
   label: string;
   value: string | number;
-  tone?: "default" | "accent" | "up" | "down";
+  tone?: "default" | "accent" | "up" | "down" | "jungle";
   detail?: string;
   linkTo?: string;
 };
 
 export function StatCard({ label, value, tone = "default", detail, linkTo }: StatCardProps) {
   const color =
-    tone === "accent" ? "text-accent" : tone === "up" ? "text-up" : tone === "down" ? "text-down" : "text-body";
+    tone === "accent" ? "text-accent"
+    : tone === "up" ? "text-up"
+    : tone === "down" ? "text-down"
+    : tone === "jungle" ? "text-[#4ade80]"
+    : "text-body";
 
   const inner = (
     <>
@@ -18,7 +22,7 @@ export function StatCard({ label, value, tone = "default", detail, linkTo }: Sta
       <p className={`numeric mt-4 text-4xl font-semibold ${color}`}>{value}</p>
       {detail ? <p className="mt-3 text-sm text-muted">{detail}</p> : null}
       {linkTo ? (
-        <p className="mt-3 text-xs text-accent/70 group-hover:text-accent">View →</p>
+        <p className="mt-3 text-xs text-[#4ade80]/60 group-hover:text-[#4ade80]">View →</p>
       ) : null}
     </>
   );
