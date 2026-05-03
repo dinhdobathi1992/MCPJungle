@@ -55,10 +55,21 @@ func (s *Server) invokeToolHandler() gin.HandlerFunc {
 			return
 		}
 
-		// remove name from args since it was an input for the api, not for the tool
-		delete(args, "name")
+		// extract tool arguments from the nested "arguments" key, falling back to the flat
+		// body (minus "name") for backward compatibility with direct API callers
+		var toolArgs map[string]any
+		if rawArgs, hasNested := args["arguments"]; hasNested {
+			if m, ok := rawArgs.(map[string]any); ok {
+				toolArgs = m
+			} else {
+				toolArgs = map[string]any{}
+			}
+		} else {
+			delete(args, "name")
+			toolArgs = args
+		}
 
-		resp, err := s.mcpService.InvokeTool(c, name, args)
+		resp, err := s.mcpService.InvokeTool(c, name, toolArgs)
 		if err != nil {
 			handleServiceError(c, fmt.Errorf("failed to invoke tool: %w", err))
 			return

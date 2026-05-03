@@ -181,7 +181,7 @@ export function ToolsPage() {
                   onSubmit={(values) => {
                     setInvokeResult(null);
                     setInvokeError("");
-                    invokeMutation.mutate({ name: activeTool.name, ...values });
+                    invokeMutation.mutate({ name: activeTool.name, arguments: values });
                   }}
                 />
                 {invokeMutation.isPending ? (
