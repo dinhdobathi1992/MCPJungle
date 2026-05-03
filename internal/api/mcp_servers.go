@@ -155,6 +155,13 @@ func (s *Server) listServersHandler() gin.HandlerFunc {
 			return
 		}
 
+		isAdmin := false
+		if u, exists := c.Get("user"); exists {
+			if userModel, ok := u.(*model.User); ok {
+				isAdmin = userModel.Role == types.UserRoleAdmin
+			}
+		}
+
 		servers := make([]*types.McpServer, len(records))
 
 		for i, record := range records {
@@ -189,9 +196,11 @@ func (s *Server) listServersHandler() gin.HandlerFunc {
 					)
 					return
 				}
-				servers[i].Command = conf.Command
-				servers[i].Args = conf.Args
-				servers[i].Env = conf.Env
+				if isAdmin {
+					servers[i].Command = conf.Command
+					servers[i].Args = conf.Args
+					servers[i].Env = conf.Env
+				}
 			default:
 				// transport is SSE
 				conf, err := record.GetSSEConfig()

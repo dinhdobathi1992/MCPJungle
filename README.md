@@ -72,6 +72,43 @@ This lets teams define access policies once at the group level instead of per-us
   <img src="./assets/screenshots/users.png" alt="Users page with group column" width="780">
 </p>
 
+### Security hardening
+
+This fork applies several security improvements on top of the upstream codebase:
+
+**Bootstrap protection (`/init`)**
+
+The `/init` endpoint — which creates the admin account on a fresh install — is now restricted by default to loopback (`127.0.0.1` / `::1`) only. Remote access requires a pre-shared token:
+
+```bash
+# Set before starting the server
+export MCPJUNGLE_INIT_TOKEN=your-bootstrap-secret
+mcpjungle start --enterprise --ui
+```
+
+Callers must then supply `X-Init-Token: your-bootstrap-secret` in the request header. Without the env var, the endpoint is unreachable from any non-loopback address, preventing the "first caller becomes admin" takeover on uninitialized deployments.
+
+**Local-only apply-config**
+
+`/clients/self/apply-config` (the endpoint that writes IDE config files on the server host) is now **disabled by default**. It only activates when:
+
+1. `MCPJUNGLE_ENABLE_LOCAL_APPLY_CONFIG=true` is set, and
+2. Both the `Host` header and the client's remote address are loopback
+
+This means hosted deployments, Kubernetes, and shared servers cannot trigger server-side file writes. Only a local install running under your own user account can use one-click Apply Config.
+
+```bash
+MCPJUNGLE_ENABLE_LOCAL_APPLY_CONFIG=true mcpjungle start --enterprise --ui
+```
+
+The Settings page detects the gate automatically — it shows the one-click Apply Config section only when local apply is permitted, and falls back to downloadable/copyable config snippets otherwise.
+
+**Other hardening**
+
+- Stdio server `command`, `args`, and `env` fields are redacted from the `/api/v0/servers` response for non-admin users (they could contain credentials)
+- Self-service client creation (`POST /clients/self`) can only overwrite a token you own — it cannot clobber another user's or admin's client token
+- Internal server errors return a generic message instead of raw error text; details are logged server-side only
+
 ## Why MCPJungle?
 
 MCP is powerful, but managing many MCP servers gets messy fast.
@@ -109,13 +146,13 @@ MCPJungle now ships an embedded **Management Dashboard** served at `/ui` when yo
 - **Clients** — admin CRUD for MCP client tokens with per-client allow-list control
 - **Users** — admin CRUD for users with per-user server access
 - **Groups** — create groups, set server allow-lists, assign users
-- **Settings** — view version, mode, create your own MCP client token, apply config to IDEs
+- **Settings** — view version, mode, create your own MCP client token, download/copy IDE config snippets, and locally apply config on same-machine installs
 
 ### Self-service client tokens
 
 Non-admin users can create their own MCP client token from the Settings page.  
 The token automatically inherits the server access list configured for that user (or their group) by an admin.  
-A one-click **Apply Config** generates the correct config for Claude, Cursor, Codex, Copilot, OpenCode, and Zed.
+The Settings page provides downloadable and copyable config snippets for Claude, Cursor, Codex, Copilot, OpenCode, and Zed. One-click **Apply Config** is available only for same-machine local installs when `MCPJUNGLE_ENABLE_LOCAL_APPLY_CONFIG=true`.
 
 ### Dashboard preview
 

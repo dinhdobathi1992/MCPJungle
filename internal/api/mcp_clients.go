@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -14,6 +15,8 @@ import (
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcpclient"
 )
+
+const enableLocalApplyConfigEnvVar = "MCPJUNGLE_ENABLE_LOCAL_APPLY_CONFIG"
 
 func (s *Server) listMcpClientsHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -73,9 +76,10 @@ func (s *Server) createSelfClientHandler() gin.HandlerFunc {
 		resolvedList := s.groupService.ResolveAllowList(userModel)
 		encodedList, _ := json.Marshal(resolvedList)
 
-		// If a client with this name already exists, replace it so the user
-		// always gets a fresh token with current group permissions.
-		_ = s.mcpClientService.DeleteClient(name)
+		// If a client with this name already exists and is owned by this user,
+		// replace it so they get a fresh token with current group permissions.
+		// Use DeleteClientByOwner to prevent overwriting another user's client.
+		_ = s.mcpClientService.DeleteClientByOwner(name, username)
 
 		client, err := s.mcpClientService.CreateClient(model.McpClient{
 			Name:          name,
@@ -90,10 +94,60 @@ func (s *Server) createSelfClientHandler() gin.HandlerFunc {
 	}
 }
 
-// applySelfClientConfigHandler runs scripts/setup-mcp-clients.sh for the requesting user's
-// chosen IDE targets, injecting the provided MCP client token automatically.
+func localApplyConfigEnabled() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv(enableLocalApplyConfigEnvVar))) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
+}
+
+func isLoopbackHost(raw string) bool {
+	host := strings.TrimSpace(raw)
+	if host == "" {
+		return false
+	}
+
+	if parsedHost, _, err := net.SplitHostPort(host); err == nil {
+		host = parsedHost
+	}
+
+	host = strings.TrimPrefix(host, "[")
+	host = strings.TrimSuffix(host, "]")
+
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
+func canApplyConfigLocally(r *http.Request) bool {
+	if !localApplyConfigEnabled() || r == nil {
+		return false
+	}
+
+	return isLoopbackHost(r.Host) && isLoopbackHost(r.RemoteAddr)
+}
+
+// applySelfClientConfigHandler runs scripts/setup-mcp-clients.sh only for an explicit
+// local-install workflow. Hosted gateways must not mutate files on the server host.
 func (s *Server) applySelfClientConfigHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if !localApplyConfigEnabled() {
+			c.JSON(http.StatusForbidden, gin.H{
+				"error": "local apply-config is disabled; enable MCPJUNGLE_ENABLE_LOCAL_APPLY_CONFIG=true on a local install",
+			})
+			return
+		}
+		if !canApplyConfigLocally(c.Request) {
+			c.JSON(http.StatusForbidden, gin.H{
+				"error": "local apply-config is only allowed over localhost on the same machine as the gateway",
+			})
+			return
+		}
 		if runtime.GOOS == "windows" {
 			c.JSON(http.StatusNotImplemented, gin.H{"error": "apply-config is not supported on Windows"})
 			return

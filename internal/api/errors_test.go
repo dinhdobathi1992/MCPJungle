@@ -55,13 +55,13 @@ func TestHandleServiceError(t *testing.T) {
 			name:           "unrelated error returns 500",
 			err:            errors.New("db connection refused"),
 			expectedStatus: http.StatusInternalServerError,
-			expectedBody:   "db connection refused",
+			expectedBody:   "internal server error",
 		},
 		{
 			name:           "wrapped unrelated error returns 500",
 			err:            fmt.Errorf("operation failed: %w", errors.New("disk full")),
 			expectedStatus: http.StatusInternalServerError,
-			expectedBody:   "disk full",
+			expectedBody:   "internal server error",
 		},
 	}
 

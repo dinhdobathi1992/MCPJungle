@@ -4,6 +4,8 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"os"
+	"strings"
 	"sync"
 
 	"github.com/gin-gonic/gin"
@@ -192,7 +194,8 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 		},
 	)
 
-	r.POST("/init", s.registerInitServerHandler())
+	initToken := strings.TrimSpace(os.Getenv("MCPJUNGLE_INIT_TOKEN"))
+	r.POST("/init", requireInitToken(initToken), s.registerInitServerHandler())
 
 	if s.uiEnabled {
 		if err := uiassets.RegisterRoutes(r); err != nil {
@@ -278,7 +281,7 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 		userAPI.GET("/clients/self", requireEnterpriseMode, s.listSelfClientsHandler())
 		userAPI.POST("/clients/self", requireEnterpriseMode, s.createSelfClientHandler())
 		userAPI.DELETE("/clients/self/:name", requireEnterpriseMode, s.deleteSelfClientHandler())
-		// self-service: apply config to local IDE/agent tools via the setup script
+		// apply-config runs bash on server; handler gates to loopback-only + explicit env var
 		userAPI.POST("/clients/self/apply-config", requireEnterpriseMode, s.applySelfClientConfigHandler())
 	}
 

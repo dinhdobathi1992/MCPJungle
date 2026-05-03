@@ -98,7 +98,15 @@ An admin can reset a user's explicit override back to group inheritance using th
 
 Non-admin users can create their own MCP client token directly from the **Settings** page in the dashboard — no admin intervention required. The generated token inherits the user's effective allow-list (from their group or their explicit override).
 
-The Settings page also provides a one-click **Apply Config** that writes the correct MCP configuration for Claude, Cursor, Codex, Copilot, OpenCode, and Zed.
+The Settings page always provides downloadable and copyable MCP configuration snippets for Claude, Cursor, Codex, Copilot, OpenCode, and Zed.
+
+One-click **Apply Config** is local-only. It appears only when all of these are true:
+
+- `MCPJUNGLE_ENABLE_LOCAL_APPLY_CONFIG=true`
+- gateway is running on same machine as browser session
+- request reaches gateway over loopback (`localhost`, `127.0.0.1`, or `::1`)
+
+Hosted deployments cannot write files on user laptops or workstations. For EKS, Kubernetes, and other remote/shared installs, users should download or copy snippet from **Settings** and paste it into local IDE config.
 
 ## Recommended identity model
 
