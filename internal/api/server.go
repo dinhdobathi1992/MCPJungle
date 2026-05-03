@@ -281,8 +281,6 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 		userAPI.GET("/clients/self", requireEnterpriseMode, s.listSelfClientsHandler())
 		userAPI.POST("/clients/self", requireEnterpriseMode, s.createSelfClientHandler())
 		userAPI.DELETE("/clients/self/:name", requireEnterpriseMode, s.deleteSelfClientHandler())
-		// self-service: apply config to local IDE/agent tools via the setup script
-		userAPI.POST("/clients/self/apply-config", requireEnterpriseMode, s.applySelfClientConfigHandler())
 	}
 
 	// endpoints only accessible by an admin user in enterprise mode or anyone in development mode
@@ -323,6 +321,12 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 			"/clients/:name",
 			requireEnterpriseMode,
 			s.deleteMcpClientHandler(),
+		)
+		// apply-config runs bash on the server — admin only
+		adminAPI.POST(
+			"/clients/self/apply-config",
+			requireEnterpriseMode,
+			s.applySelfClientConfigHandler(),
 		)
 
 		// endpoints for managing human users (enterprise mode only)

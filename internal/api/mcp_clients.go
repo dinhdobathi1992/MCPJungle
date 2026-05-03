@@ -73,9 +73,10 @@ func (s *Server) createSelfClientHandler() gin.HandlerFunc {
 		resolvedList := s.groupService.ResolveAllowList(userModel)
 		encodedList, _ := json.Marshal(resolvedList)
 
-		// If a client with this name already exists, replace it so the user
-		// always gets a fresh token with current group permissions.
-		_ = s.mcpClientService.DeleteClient(name)
+		// If a client with this name already exists and is owned by this user,
+		// replace it so they get a fresh token with current group permissions.
+		// Use DeleteClientByOwner to prevent overwriting another user's client.
+		_ = s.mcpClientService.DeleteClientByOwner(name, username)
 
 		client, err := s.mcpClientService.CreateClient(model.McpClient{
 			Name:          name,
