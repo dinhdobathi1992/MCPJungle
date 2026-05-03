@@ -9,7 +9,7 @@ LDFLAGS  := -X 'github.com/mcpjungle/mcpjungle/pkg/version.Version=$(VERSION)'
 
 ## start: clone-and-run — install npm deps, build UI + Go binary, start server
 start: build-ui build
-	$(BINARY) start --port $(PORT) --$(MODE) --ui &
+	MCPJUNGLE_ENABLE_LOCAL_APPLY_CONFIG=true $(BINARY) start --port $(PORT) --$(MODE) --ui &
 	@sleep 1 && curl -sf http://localhost:$(PORT)/health && echo " server up at http://localhost:$(PORT)"
 
 ## build-ui: install npm deps and compile the dashboard UI
@@ -26,7 +26,7 @@ restart: build
 	if [ -n "$$PID" ]; then \
 		echo "killing PID $$PID"; kill $$PID; sleep 1; \
 	fi
-	$(BINARY) start --port $(PORT) --$(MODE) --ui &
+	MCPJUNGLE_ENABLE_LOCAL_APPLY_CONFIG=true $(BINARY) start --port $(PORT) --$(MODE) --ui &
 	@sleep 1 && curl -sf http://localhost:$(PORT)/health && echo " server up"
 
 ## restart-core: rebuild and hot-swap — gateway only, no dashboard UI
@@ -35,7 +35,7 @@ restart-core: build
 	if [ -n "$$PID" ]; then \
 		echo "killing PID $$PID"; kill $$PID; sleep 1; \
 	fi
-	$(BINARY) start --port $(PORT) --$(MODE) &
+	MCPJUNGLE_ENABLE_LOCAL_APPLY_CONFIG=true $(BINARY) start --port $(PORT) --$(MODE) &
 	@sleep 1 && curl -sf http://localhost:$(PORT)/health && echo " server up (core only)"
 
 ## dev: watch Go files and auto-restart on changes — gateway + dashboard UI (uses air)
@@ -43,14 +43,14 @@ dev:
 	@echo "Starting MCPJungle in watch mode ($(MODE), :$(PORT)) with UI"
 	@echo "Edit any .go file to trigger a rebuild."
 	@echo ""
-	$(AIR) -c .air.toml
+	MCPJUNGLE_ENABLE_LOCAL_APPLY_CONFIG=true $(AIR) -c .air.toml
 
 ## dev-core: watch Go files and auto-restart — gateway only, no UI
 dev-core:
 	@echo "Starting MCPJungle core in watch mode ($(MODE), :$(PORT)) — no UI"
 	@echo "Edit any .go file to trigger a rebuild."
 	@echo ""
-	AIR_FULL_BIN="$(BINARY) start --port $(PORT) --$(MODE)" $(AIR) -c .air.toml
+	MCPJUNGLE_ENABLE_LOCAL_APPLY_CONFIG=true AIR_FULL_BIN="$(BINARY) start --port $(PORT) --$(MODE)" $(AIR) -c .air.toml
 
 ## dev-ui: run Vite dev server (proxies /api to :8080)
 dev-ui:
