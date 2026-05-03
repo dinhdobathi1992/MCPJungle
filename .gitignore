@@ -42,8 +42,8 @@ ui/node_modules/
 internal/ui/dist/*
 !internal/ui/dist/placeholder.txt
 
-# Screenshots (local dev captures)
-screenshots/
+# Screenshots (local dev captures — root only, not assets/)
+/screenshots/
 
 # Local MCP config (may contain tokens)
 .mcp.json

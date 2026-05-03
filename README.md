@@ -160,6 +160,14 @@ The Settings page provides downloadable and copyable config snippets for Claude,
   <img src="./assets/screenshots/dashboard.png" alt="MCPJungle Management Dashboard" width="780">
 </p>
 
+<p align="center">
+  <img src="./assets/screenshots/servers.png" alt="Servers registry — register, enable/disable MCP servers" width="780">
+</p>
+
+<p align="center">
+  <img src="./assets/screenshots/settings-connect.png" alt="Settings — connect to IDE/agent with downloadable config snippets" width="780">
+</p>
+
 ### Start with the dashboard
 
 ```bash
